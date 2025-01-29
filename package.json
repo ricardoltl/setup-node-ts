@@ -1,0 +1,14 @@
+{
+  "name": "setup-node-ts",
+  "version": "1.0.0",
+  "description": "Script para criar um projeto Node.js com TypeScript, ESLint, Prettier, Jest, Husky e Docker.",
+  "bin": {
+    "setup-node-ts": "./setup.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ricardoltl/setup-node-ts"
+  },
+  "author": "Ricardo Trajano",
+  "license": "MIT"
+}
