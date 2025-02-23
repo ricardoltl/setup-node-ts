@@ -40,10 +40,8 @@ npm install --save-dev typescript ts-node nodemon @types/node @types/express @ty
 
 
 # Criando estrutura de pastas
-mkdir -p src/routes src/controllers src/middlewares
+mkdir -p src/routes src/controllers src/middlewares src/factory
 
-# Criando arquivos básicos
-touch src/index.ts src/routes/index.ts src/controllers/homeController.ts src/middlewares/errorHandler.ts
 
 # Criando .gitignore antes do Git
 cat <<EOL > .gitignore
@@ -143,7 +141,7 @@ cat <<EOL > nodemon.json
 {
   "watch": ["src"],
   "ext": "ts",
-  "exec": "ts-node src/index.ts"
+  "exec": "ts-node src/server.ts"
 }
 EOL
 
@@ -152,43 +150,49 @@ cat <<EOL > src/middlewares/errorHandler.ts
 import { Request, Response, NextFunction } from 'express';
 
 interface ErrorResponse {
-  status: number;
-  message: string;
+  status?: number;
+  message?: string;
 }
 
-export function errorHandler(
-  err: ErrorResponse,
-  _req: Request,
-  res: Response,
-  _next: NextFunction,
-): void {
-  const status = err.status || 500;
-  const message = err.message || 'Erro interno do servidor';
-  res.status(status).json({ error: message });
+export class ErrorHandler {
+  public handle(
+    err: ErrorResponse,
+    _req: Request,
+    res: Response,
+    _next: NextFunction,
+  ): void {
+    const status = err.status || 500;
+    const message = err.message || 'Erro interno do servidor';
+    res.status(status).json({ error: message });
+  }
 }
 EOL
 
 # Criando controller básico
-cat <<EOL > src/controllers/homeController.ts
+cat <<EOL > src/controllers/home.controller.ts
 import { Request, Response } from 'express';
 
-export function homeController(req: Request, res: Response): void {
-  res.json({ message: 'API funcionando!' });
+class HomeController {
+  public index = (_req: Request, res: Response): void => {
+    res.json({ message: 'API funcionando!' });
+  };
 }
+
+export default new HomeController();
 EOL
 
 # Criando teste controller
-cat <<EOL > src/controllers/homeController.test.ts;
+cat <<EOL > src/controllers/home.controller.test.ts
 import request from 'supertest';
 import express from 'express';
-import { homeController } from './homeController';
+import HomeController from './home.controller';
 
 describe('homeController', () => {
   let app: express.Express;
 
   beforeAll(() => {
     app = express();
-    app.get('/', homeController);
+    app.get('/', HomeController.index);
   });
 
   it('Deve retornar status 200 e mensagem correta', async () => {
@@ -203,47 +207,106 @@ EOL
 # Criando rotas
 cat <<EOL > src/routes/home.routes.ts
 import { Router } from 'express';
-import { homeController } from '../controllers/homeController';
+import HomeController from '../controllers/home.controller';
 
-const homeRouter = Router();
+class HomeRoutes {
+  public router: Router;
 
-homeRouter.get('/', homeController);
+  constructor() {
+    this.router = Router();
+    this.initializeRoutes();
+  }
 
-export default homeRouter;
+  private initializeRoutes(): void {
+    this.router.get('/', HomeController.index);
+  }
+}
+
+export default new HomeRoutes().router;
 EOL
 
 cat <<EOL > src/routes/index.ts
 import { Router } from 'express';
 import homeRouter from './home.routes';
 
-const router = Router();
+class Routes {
+  public router: Router;
 
-router.use('/', homeRouter);
+  constructor() {
+    this.router = Router();
+    this.initializeRoutes();
+  }
 
-export default router;
+  private initializeRoutes(): void {
+    this.router.use('/', homeRouter);
+  }
+}
+
+export default new Routes().router;
 EOL
 
 # Criando servidor Express
-cat <<EOL > src/index.ts
-import express from 'express';
+cat <<EOL > src/app.ts
+import express, { Application } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import routes from './routes';
-import { errorHandler } from './middlewares/errorHandler';
+import { ErrorHandler } from './middlewares/errorHandler';
 
 dotenv.config();
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+export class App {
+  public app: Application;
+  private port: number | string;
 
-app.use(cors());
-app.use(express.json());
-app.use('/api', routes);
-app.use(errorHandler);
+  constructor(port?: number | string) {
+    this.app = express();
+    this.port = port || process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log(\`Servidor rodando na porta \${PORT}\`);
-});
+    this.middlewares();
+    this.routes();
+    this.errorHandling();
+  }
+
+  private middlewares(): void {
+    this.app.use(cors());
+    this.app.use(express.json());
+  }
+
+  private routes(): void {
+    this.app.use('/api', routes);
+  }
+
+  private errorHandling(): void {
+    this.app.use(new ErrorHandler().handle);
+  }
+
+  public execute(): void {
+    this.app.listen(this.port, () => {
+      console.log('Server is running on port', this.port);
+    });
+  }
+}
+EOL
+
+cat <<EOL > src/factory/genericFactory.ts
+export class GenericFactory {
+  public static createInstance<T>(
+    ctor: new (...args: any[]) => T,
+    ...args: any[]
+  ): T {
+    return new ctor(...args);
+  }
+}
+EOL
+
+cat <<EOL > src/server.ts
+import { GenericFactory } from './factory/genericFactory';
+import { App } from './app';
+
+const appInstance = GenericFactory.createInstance(App);
+
+appInstance.execute();
 EOL
 
 # Configurando scripts no package.json
@@ -251,7 +314,7 @@ npx json -I -f package.json -e '
   this.scripts = {
     "dev": "nodemon",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "tsc && node dist/server.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",

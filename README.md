@@ -1,4 +1,4 @@
-# � Setup Node.js com TypeScript, ESLint, Prettier, Jest, Husky e Docker
+# Setup Node.js com TypeScript, ESLint, Prettier, Jest, Husky e Docker
 
 Este script automatiza a criação de um projeto Node.js com **TypeScript**, **ESLint**, **Prettier**, **Jest**, **Husky** e **Docker**. Basta rodar um único comando e seu projeto estará pronto para desenvolvimento!
 
@@ -11,7 +11,7 @@ Este script automatiza a criação de um projeto Node.js com **TypeScript**, **E
 
 ---
 
-## � **Como usar**
+## **Como usar**
 
 ### 1️⃣ Criar um novo projeto automaticamente
 ```bash
